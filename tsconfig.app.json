@@ -8,7 +8,7 @@
   },
   "include": [
     "src/**/*.ts"
-  ],
+, "src/app/features/admin/admin-nueva-propiedad.old"  ],
   "exclude": [
     "src/**/*.spec.ts"
   ]

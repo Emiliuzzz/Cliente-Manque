@@ -85,7 +85,7 @@ export const routes: Routes = [
       (m) => m.AdminPropietariosComponent
     ),
  },
- 
+  
   {
     path: 'admin/propietarios/:id',
     loadComponent: () =>

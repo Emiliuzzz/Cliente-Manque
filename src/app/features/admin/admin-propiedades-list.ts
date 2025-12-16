@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import {
   AdminPropiedadesService,
   AdminPropiedadResumen,
+  EstadoAprobacion,
 } from '../../core/services/admin-propiedades.service';
 
 @Component({
@@ -68,15 +69,53 @@ import {
                 {{ p.precio | currency:'CLP':'symbol-narrow' }}
               </td>
               <td>{{ p.estado | titlecase }}</td>
-              <td>{{ p.estado_aprobacion | titlecase }}</td>
-              <td class="text-end">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary"
-                  (click)="verDetalle(p.id)"
+              <td>
+                <span
+                  class="badge"
+                  [ngClass]="{
+                    'bg-warning text-dark': p.estado_aprobacion === 'pendiente',
+                    'bg-success': p.estado_aprobacion === 'aprobada',
+                    'bg-danger': p.estado_aprobacion === 'rechazada'
+                  }"
                 >
-                  Ver / editar
-                </button>
+                  {{ p.estado_aprobacion | titlecase }}
+                </span>
+              </td>
+              <td class="text-end">
+                <td class="text-end">
+                  <!-- Botones de aprobación -->
+                  <button
+                    *ngIf="p.estado_aprobacion === 'pendiente'"
+                    class="btn btn-sm btn-success me-2"
+                    (click)="cambiarAprobacion(p, 'aprobada')"
+                  >
+                    Aprobar
+                  </button>
+
+                  <button
+                    *ngIf="p.estado_aprobacion === 'pendiente'"
+                    class="btn btn-sm btn-danger me-2"
+                    (click)="cambiarAprobacion(p, 'rechazada')"
+                  >
+                    Rechazar
+                  </button>
+
+                  <!-- 🔹 Botón para fotos: siempre visible -->
+                  <button
+                    class="btn btn-sm btn-outline-primary me-2"
+                    [routerLink]="['/propietario/propiedad', p.id, 'fotos']"
+                  >
+                    {{ p.tiene_fotos ? 'Gestionar fotos' : 'Subir fotos' }}
+                  </button>
+
+                  <!-- Ver / editar detalle -->
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="verDetalle(p.id)"
+                  >
+                    Ver / editar
+                  </button>
               </td>
             </tr>
           </tbody>
@@ -116,7 +155,26 @@ export class AdminPropiedadesListComponent implements OnInit {
     });
   }
 
-    verDetalle(id: number): void {
+  verDetalle(id: number): void {
     this.router.navigate(['/admin/propiedades', id]);
+  }
+
+  cambiarAprobacion(
+    prop: AdminPropiedadResumen,
+    nuevoEstado: EstadoAprobacion
+  ): void {
+    if (!confirm(`¿Seguro que quieres marcar la propiedad "${prop.titulo}" como ${nuevoEstado}?`)) {
+      return;
+    }
+
+    this.adminPropsSvc.cambiarEstadoAprobacion(prop.id, nuevoEstado).subscribe({
+      next: () => {
+        prop.estado_aprobacion = nuevoEstado;
+      },
+      error: (err) => {
+        console.error(err);
+        alert('No se pudo actualizar el estado de aprobación.');
+      },
+    });
   }
 }

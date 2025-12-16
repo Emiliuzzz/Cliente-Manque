@@ -14,6 +14,8 @@ export interface AdminPropietario {
   email: string;
 }
 
+export type EstadoAprobacion = 'pendiente' | 'aprobada' | 'rechazada';
+
 export interface AdminPropiedadResumen {
   id: number;
   titulo: string;
@@ -21,14 +23,14 @@ export interface AdminPropiedadResumen {
   tipo: string;
   precio: number;
   estado: string;
-  estado_aprobacion: string;
+  estado_aprobacion: EstadoAprobacion;
+  tiene_fotos: boolean;
   propietario: {
-    id: number;
     primer_nombre: string;
     primer_apellido: string;
     rut: string;
     email: string;
-  } | null;
+  };
 }
 
 export interface NuevaPropiedadAdmin {
@@ -43,7 +45,7 @@ export interface NuevaPropiedadAdmin {
   metros2: number;
   precio: number;
   estado?: string;
-  estado_aprobacion?: string;
+  estado_aprobacion?: EstadoAprobacion;
   orientacion?: string;
 }
 
@@ -69,14 +71,14 @@ export class AdminPropiedadesService {
     return this.http.post<any>(`${this.apiAdminRoot}/propiedades/`, data);
   }
 
-  // OBTENER DETALLE
+  // DETALLE
   getPropiedad(id: number): Observable<NuevaPropiedadAdmin & { id: number }> {
     return this.http.get<NuevaPropiedadAdmin & { id: number }>(
       `${this.apiAdminRoot}/propiedades/${id}/`
     );
   }
 
-  // ACTUALIZAR COMPLETA (PUT)
+  // ACTUALIZAR COMPLETA 
   actualizarPropiedad(
     id: number,
     data: Partial<NuevaPropiedadAdmin>
@@ -87,10 +89,10 @@ export class AdminPropiedadesService {
     );
   }
 
-  // 🔹 CAMBIAR SOLO ESTADO_APROBACION (PATCH)
+  // 🔹 CAMBIAR SOLO ESTADO_APROBACION
   cambiarEstadoAprobacion(
     id: number,
-    estado_aprobacion: 'pendiente' | 'aprobada' | 'rechazada'
+    estado_aprobacion: EstadoAprobacion
   ): Observable<any> {
     return this.http.patch<any>(
       `${this.apiAdminRoot}/propiedades/${id}/`,

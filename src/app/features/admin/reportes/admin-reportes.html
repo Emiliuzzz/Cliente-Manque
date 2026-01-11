@@ -1,0 +1,397 @@
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>Reportes</h1>
+      <p class="subtitle">
+        Resumen financiero y operacional de la corredora. Usa filtros para ver
+        períodos, agrupar y filtrar.
+      </p>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" (click)="cargar()" [disabled]="cargando">
+        ↻ Refrescar
+      </button>
+    </div>
+
+    <div
+      style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 12px 0;"
+    >
+      <h2 style="margin:0;">Reportes (Resumen)</h2>
+
+      <button class="btn btn-ghost" (click)="volverPanel()">
+        ← Volver al panel
+      </button>
+    </div>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="card card-soft">
+    <div class="filters">
+      <div class="field">
+        <label>Preset</label>
+        <select [(ngModel)]="preset" (change)="onPresetChange()">
+          <option value="7d">Últimos 7 días</option>
+          <option value="30d">Últimos 30 días</option>
+          <option value="mes">Este mes</option>
+          <option value="anio">Este año</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Desde</label>
+        <input type="date" [(ngModel)]="desde" />
+      </div>
+
+      <div class="field">
+        <label>Hasta</label>
+        <input type="date" [(ngModel)]="hasta" />
+      </div>
+
+      <div class="field">
+        <label>Agrupar</label>
+        <select [(ngModel)]="group">
+          <option value="day">Día</option>
+          <option value="week">Semana</option>
+          <option value="month">Mes</option>
+        </select>
+      </div>
+
+
+      <div class="field field-btn">
+        <button class="btn btn-primary" (click)="cargar()" [disabled]="cargando">
+          {{ cargando ? 'Cargando...' : 'Aplicar' }}
+        </button>
+      </div>
+
+      <div class="period" *ngIf="data">
+        <div class="period-label">Período</div>
+        <div class="period-value">
+          {{ data.periodo.desde }} → {{ data.periodo.hasta }}
+          <span class="pill">{{ data.periodo.group }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="error" *ngIf="error">
+      <strong>Ocurrió un error:</strong> {{ error }}
+    </div>
+  </div>
+
+  <!-- KPIS (incluye Reservas & Solicitudes dentro del grid) -->
+  <div class="grid kpis" *ngIf="data">
+    <div class="kpi kpi-primary">
+      <div class="kpi-title">Ingresos total</div>
+      <div class="kpi-value">{{ moneda(data.kpis.ingresos_total) }}</div>
+      <div class="kpi-sub">Pagos: {{ numero(data.kpis.pagos_total) }}</div>
+    </div>
+
+    <div class="kpi kpi-success">
+      <div class="kpi-title">Ventas</div>
+      <div class="kpi-value">{{ moneda(data.kpis.ingresos_ventas) }}</div>
+      <div class="kpi-sub">
+        Contratos venta activos: {{ numero(data.kpis.ventas_activos) }}
+      </div>
+    </div>
+
+    <div class="kpi kpi-info">
+      <div class="kpi-title">Arriendo (cuotas)</div>
+      <div class="kpi-value">{{ moneda(data.kpis.ingresos_arriendo_cuotas) }}</div>
+      <div class="kpi-sub">
+        Arriendos activos: {{ numero(data.kpis.arriendos_activos) }}
+      </div>
+    </div>
+
+    <div class="kpi kpi-warn">
+      <div class="kpi-title">Arriendo (extras)</div>
+      <div class="kpi-value">{{ moneda(data.kpis.ingresos_arriendo_extras) }}</div>
+      <div class="kpi-sub">Pagos manuales (servicios/ajustes)</div>
+    </div>
+
+    <div class="kpi kpi-danger">
+      <div class="kpi-title">Mora vencida</div>
+      <div class="kpi-value">{{ moneda(data.mora.vencidas_total) }}</div>
+      <div class="kpi-sub">
+        Cuotas vencidas: {{ numero(data.mora.vencidas_count) }}
+      </div>
+    </div>
+
+    <div class="kpi kpi-muted">
+      <div class="kpi-title">Próximas 7 días</div>
+      <div class="kpi-value">{{ moneda(data.mora.proximas_7d_total) }}</div>
+      <div class="kpi-sub">
+        Cuotas: {{ numero(data.mora.proximas_7d_count) }}
+      </div>
+    </div>
+
+    <!-- Solicitudes -->
+    <div class="kpi kpi-info" *ngIf="data?.solicitudes">
+      <div class="kpi-title">Solicitudes recibidas</div>
+      <div class="kpi-value">{{ numero(data.solicitudes.total) }}</div>
+
+      <div class="kpi-sub" *ngIf="data.solicitudes.por_estado?.length">
+        <span
+          class="pill"
+          *ngFor="let s of data.solicitudes.por_estado"
+          style="margin-right:6px; margin-top:6px; display:inline-block;"
+        >
+          {{ estadoLabel(s.estado) }}: {{ numero(s.count) }}
+        </span>
+      </div>
+    </div>
+
+    <!--  Reservas -->
+    <div class="kpi kpi-primary" *ngIf="data?.reservas">
+      <div class="kpi-title">Reservas recibidas</div>
+      <div class="kpi-value">{{ numero(data.reservas.total) }}</div>
+
+      <div class="kpi-sub" *ngIf="data.reservas.por_estado?.length">
+        <span
+          class="pill"
+          *ngFor="let r of data.reservas.por_estado"
+          style="margin-right:6px; margin-top:6px; display:inline-block;"
+        >
+          {{ estadoLabel(r.estado) }}: {{ numero(r.count) }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA OPERACIONAL POR ESTADO + ACCIÓN -->
+  <div class="card" *ngIf="data">
+    <div class="card-head">
+      <div>
+        <h2>Operación: reservas y solicitudes</h2>
+        <p class="muted">Desglose por estado en el período seleccionado.</p>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Estado</th>
+            <th class="center">Cantidad</th>
+            <th class="right">Acción</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <!-- Reservas -->
+          <tr *ngFor="let r of (data.reservas?.por_estado || [])">
+            <td>Reserva</td>
+            <td>
+              <span
+                class="badge"
+                [ngClass]="{
+                  'badge-ok': estadoBadge(r.estado) === 'ok',
+                  'badge-warn': estadoBadge(r.estado) === 'warn',
+                  'badge-danger': estadoBadge(r.estado) === 'danger'
+                }"
+              >
+                {{ estadoLabel(r.estado) }}
+              </span>
+            </td>
+            <td class="center">
+              <span class="pill">{{ numero(r.count) }}</span>
+            </td>
+            <td class="right">
+              <button class="btn btn-small" (click)="verOperacion('reservas', r.estado)">
+                Ver reservas →
+              </button>
+            </td>
+          </tr>
+
+          <!-- Solicitudes -->
+          <tr *ngFor="let s of (data.solicitudes?.por_estado || [])">
+            <td>Solicitud</td>
+            <td>
+              <span
+                class="badge"
+                [ngClass]="{
+                  'badge-ok': estadoBadge(s.estado) === 'ok',
+                  'badge-warn': estadoBadge(s.estado) === 'warn',
+                  'badge-danger': estadoBadge(s.estado) === 'danger'
+                }"
+              >
+                {{ estadoLabel(s.estado) }}
+              </span>
+            </td>
+            <td class="center">
+              <span class="pill">{{ numero(s.count) }}</span>
+            </td>
+            <td class="right">
+              <button class="btn btn-small" (click)="verOperacion('solicitudes', s.estado)">
+                Ver solicitudes →
+              </button>
+            </td>
+          </tr>
+
+          <tr
+            *ngIf="!((data.reservas?.por_estado?.length || 0) + (data.solicitudes?.por_estado?.length || 0))"
+          >
+            <td colspan="4" class="empty">
+              No hay reservas ni solicitudes en este período.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- DEUDORES / MORA  -->
+  <div class="card" *ngIf="data">
+    <div class="card-head">
+      <div>
+        <h2>Morosidad</h2>
+        <p class="muted">
+          Clientes con cuotas vencidas (arriendo vigente). Prioriza el seguimiento.
+        </p>
+      </div>
+
+      <button class="btn btn-ghost" (click)="mostrarDeudores = !mostrarDeudores">
+        {{ mostrarDeudores ? 'Ocultar' : 'Mostrar' }}
+      </button>
+    </div>
+
+    <div *ngIf="mostrarDeudores">
+      <div class="empty" *ngIf="!data.deudores?.length">
+        ✅ No hay clientes con mora en este período.
+      </div>
+
+      <div class="table-wrap" *ngIf="data.deudores?.length">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Propiedad</th>
+              <th class="center">Cuotas</th>
+              <th class="center">Atraso</th>
+              <th class="right">Deuda</th>
+              <th class="right">Acción</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let d of data.deudores">
+              <td>
+                <div class="cell-main">{{ d.cliente.nombre }}</div>
+                <div class="cell-sub">{{ d.cliente.rut }}</div>
+              </td>
+
+              <td>
+                <div class="cell-main">{{ d.propiedad.titulo }}</div>
+                <div class="cell-sub">Propiedad #{{ d.propiedad.id }}</div>
+              </td>
+
+              <td class="center">
+                <span class="pill">{{ d.cuotas_vencidas }}</span>
+              </td>
+
+              <td class="center">
+                <span
+                  class="badge"
+                  [ngClass]="{
+                    'badge-ok': badgeAtraso(d.dias_atraso) === 'ok',
+                    'badge-warn': badgeAtraso(d.dias_atraso) === 'warn',
+                    'badge-danger': badgeAtraso(d.dias_atraso) === 'danger'
+                  }"
+                >
+                  {{ d.dias_atraso }} días
+                </span>
+                <div class="cell-sub" *ngIf="d.primera_vencida">
+                  1ª vencida: {{ d.primera_vencida }}
+                </div>
+              </td>
+
+              <td class="right">
+                <div class="cell-main strong">{{ moneda(d.deuda_total) }}</div>
+              </td>
+
+              <td class="right">
+                <button class="btn btn-small" (click)="verContrato(d.contrato_id)">
+                  Ver contrato →
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- INGRESOS EN EL TIEMPO -->
+  <div class="card" *ngIf="data">
+    <div class="card-head">
+      <div>
+        <h2>Ingresos en el período</h2>
+        <p class="muted">Serie agrupada por {{ data.periodo.group }}.</p>
+      </div>
+    </div>
+
+    <div class="series">
+      <div class="series-row" *ngFor="let it of data.serie_ingresos">
+        <div class="series-label">{{ it.periodo }}</div>
+        <div class="series-bar">
+          <div class="series-fill" [style.width.%]="barraPct(it.total)"></div>
+        </div>
+        <div class="series-value">{{ moneda(it.total) }}</div>
+      </div>
+
+      <div class="empty" *ngIf="!data.serie_ingresos?.length">
+        No hay ingresos registrados en este período.
+      </div>
+    </div>
+  </div>
+
+  <!-- TOP PROPIEDADES -->
+  <div class="card" *ngIf="data">
+    <div class="card-head">
+      <div>
+        <h2>Top propiedades por ingresos</h2>
+        <p class="muted">Top 10 según pagos registrados en el período.</p>
+      </div>
+    </div>
+
+    <div class="table-wrap" *ngIf="data.top_propiedades?.length; else noTop">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Propiedad</th>
+            <th class="center">Pagos</th>
+            <th class="right">Total</th>
+            <th class="right">Acción</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let p of data.top_propiedades">
+            <td>
+              <div class="cell-main"># {{ p.titulo }}</div>
+            </td>
+            <td class="center">
+              <span class="pill">{{ p.pagos }}</span>
+            </td>
+            <td class="right">
+              <div class="cell-main strong">{{ moneda(p.total) }}</div>
+            </td>
+            <td class="right">
+              <button
+                class="btn btn-small btn-ghost"
+                (click)="verPropiedad(p.propiedad_id)"
+              >
+                Ver propiedad →
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #noTop>
+      <div class="empty">No hay datos suficientes para ranking.</div>
+    </ng-template>
+  </div>
+</div>
